@@ -15,8 +15,15 @@ import threading
 
 vehicle = connect('127.0.0.1:14570', wait_ready=True, baud=115200) #與飛機連線
 first_vehicle = connect('127.0.0.1:14560', wait_ready=True, baud=115200) #與飛機連線
-mqtthost = "192.168.0.117"
+mqtthost = "192.168.0.101"
 mqttport = 1883
+
+def get_distance_metres(aLocation1, aLocation2): #定義目標位置與目標位置計算出距離
+    
+    dlat = aLocation2.lat - aLocation1.lat
+    dlong = aLocation2.lon - aLocation1.lon
+    dalt = aLocation2.alt - aLocation1.alt
+    return math.sqrt((dlat*dlat) + (dlong*dlong)) * 1.113195e5 + math.sqrt(dalt*dalt)
 
 def condition_yaw(heading, relative=False):
     if relative:
@@ -123,7 +130,7 @@ def bb():
     # 當接收到從伺服器發送的訊息時要進行的動作
     def on_message(client, userdata, msg):
         # 轉換編碼utf-8才看得懂中文
-        print(msg.topic+" "+ msg.payload.decode('utf-8'))
+        #print(msg.topic+" "+ msg.payload.decode('utf-8'))
         data = json.loads(msg.payload.decode('utf-8'))
         mode = data.get("mode")
         
@@ -139,16 +146,16 @@ def bb():
                 time.sleep(1)
                 aux(12,1000)
                 print('relayoff')
-                
             else:
                 print('off')
         if mode == 'line':
             payload = {"goit" : None}
             client.publish("drone/goit2", json.dumps(payload))
-            point = target(2, -180,firstalt-2) #(距離，與長機相對位置， 高度)
+            point = target(2, -180,firstalt) #(距離，與長機相對位置， 高度)
             vehicle.simple_goto(point,3)
             time.sleep(0.1)
             distancetopoint = utils.get_distance_metres(vehicle.location.global_frame, point)
+            print("Distance to first:"+"{:.2f}".format(utils.get_distance_metres(vehicle.location.global_frame, first_vehicle.location.global_frame)))
             if distancetopoint >=1: #離目標距離大於1時會繼續往目標前進，直到小於1時跳出
                 #vehicle.simple_goto(point1)
                 print("Distance to target:"+"{:.2f}".format(distancetopoint)) #{}內容會讀取後面.format內的值，如{:.3f}表示將remainingDistance填充到槽中時，取小數點後3位
@@ -165,7 +172,7 @@ def bb():
                 print("Change Mode Guided")
                 vehicle.mode = VehicleMode("GUIDED")
         elif mode == 'triangle':
-            point = target(2, -225,firstalt-2)
+            point = target(2, -225,firstalt)
             vehicle.simple_goto(point,3)
             time.sleep(0.1)
             distancetopoint = utils.get_distance_metres(vehicle.location.global_frame, point)
@@ -191,7 +198,7 @@ def bb():
         elif mode == 'Inverted triangle':
             payload = {"goit" : None}
             client.publish("drone/goit2", json.dumps(payload))
-            point = target(2, -315,firstalt-2)
+            point = target(2, -315,firstalt)
             vehicle.simple_goto(point,3)
             time.sleep(0.1)
             distancetopoint = utils.get_distance_metres(vehicle.location.global_frame, point)
@@ -213,7 +220,7 @@ def bb():
         elif mode == 'side_line':
             payload = {"goit" : None}
             client.publish("drone/goit2", json.dumps(payload))
-            point = target(2, -90,firstalt-2)
+            point = target(2, -90,firstalt)
             vehicle.simple_goto(point,3)
             time.sleep(0.1)
             distancetopoint = utils.get_distance_metres(vehicle.location.global_frame, point)

@@ -7,15 +7,19 @@ from dronekit import connect, VehicleMode, LocationGlobalRelative,LocationGlobal
 import math
 from pymavlink import mavutil
 import utils
-import getch
 import paho.mqtt.client as mqtt
 import json
 import paho.mqtt.publish as publish
 import threading
 
-vehicle = connect('127.0.0.1:14580', wait_ready=True, baud=115200) #與飛機連線
-first_vehicle = connect('127.0.0.1:14562', wait_ready=True, baud=115200) #與飛機連線
-mqtthost = "192.168.0.117"
+# 實際飛行
+# vehicle = connect('192.168.0.120:14550', wait_ready=True, baud=115200) #與飛機連線
+# first_vehicle = connect('udpout:192.168.0.110:14552', wait_ready=True, baud=115200) #與飛機連線
+# 模擬飛行
+vehicle = connect('192.168.0.120:14580', wait_ready=True, baud=115200) #與飛機連線
+first_vehicle = connect('192.168.0.120:14562', wait_ready=True, baud=115200) #與飛機連線
+
+mqtthost = "192.168.0.101"
 mqttport = 1883
 mqtttopic = "drone/follow2"
 home = 0
@@ -63,17 +67,6 @@ def target(dis, dhead, dalt):
     #print("座標離目標物距離:",get_distance_metres)
 
     return LocationGlobalRelative(newlat, newlon, alt)
-def aux(ACTUATOR,pwm): #設定aux通道
-    msg = vehicle.message_factory.command_long_encode(
-        0, 0,    # target system, target component
-        mavutil.mavlink.MAV_CMD_DO_SET_SERVO, #command
-        0, #confirmation
-        ACTUATOR,pwm,0,0,0,0,0
-        )
-    # send command to vehicle
-    vehicle.send_mavlink(msg)
-    vehicle.flush()
-    return pwm
 
 def aa():
     # 準備要傳送的訊息
@@ -98,13 +91,7 @@ def aa():
         auth={'username':'bighead','password':'nfuaesil'})
         time.sleep(0.3)
         if vehicle.mode.name == "RTL" and vehicle.armed == False:
-            msg = { 'lat' : '0',
-                'lon' : "0",
-                'alt': "0",
-                'V' : "0",
-                'heading' : "0",
-                'flightmode': "0",
-                'AirSpeed': "0", 
+            msg = { 'lat' : None,
                 'name' : 'follow2'}
             messages = [
             {'topic':mqtttopic, 'payload': json.dumps(msg)}
@@ -117,9 +104,10 @@ def aa():
             auth={'username':'bighead','password':'nfuaesil'})
             print("88")
             break
-    vehicle.mode = VehicleMode("STABILIZE")
+    vehicle.mode = VehicleMode("LOITER")
 
 def bb():
+    
     def on_connect(client, userdata, flags, rc):
         print("Connected with result code "+str(rc))
 
@@ -135,28 +123,27 @@ def bb():
         print(msg.topic+" "+ msg.payload.decode('utf-8'))
         data = json.loads(msg.payload.decode('utf-8'))
         mode = data.get("mode")
-        throw = data.get("throw")
         firstalt = first_vehicle.location.global_relative_frame.alt
         if msg.topic == 'drone/throw':
             if data['throw'] == "on":
+                time.sleep(1)
                 print('on')
-                aux(12,1900)
+                utils.aux(vehicle,9,1900)
                 print("relayon")
                 time.sleep(1)
-                aux(12,1000)
+                utils.aux(vehicle,9,850)
                 print('relayoff')
             else:
                 print('off')
         if mode == 'line':
-            start = time.time()
             payload = {"goit" : None}
             client.publish("drone/goit3", json.dumps(payload))
-            point = target(4, -180,firstalt-5)
+            point = target(4, -180,firstalt-6)
             vehicle.simple_goto(point,3)
-            time.sleep(1)
+            time.sleep(0.1)
             distancetopoint = utils.get_distance_metres(vehicle.location.global_frame, point)
             if distancetopoint >=1: #離目標距離大於1時會繼續往目標前進，直到小於1時跳出
-                #vehicle.simple_goto(point1)
+                vehicle.simple_goto(point)
                 print("Distance to target:"+"{:.2f}".format(distancetopoint)) #{}內容會讀取後面.format內的值，如{:.3f}表示將remainingDistance填充到槽中時，取小數點後3位
                 if first_vehicle.mode == "RTL":
                     print("Returning to Launch")
@@ -175,14 +162,13 @@ def bb():
             end = time.time()
             #print("執行時間:"+ str(end-start))
         elif mode == 'triangle':
-            start = time.time()
-            payload = {"goit" : None}
-            client.publish("drone/goit3", json.dumps(payload))
-            point = target(2, -135,firstalt-5)
+            point = target(2, -135,firstalt-6)
             vehicle.simple_goto(point,3)
-            time.sleep(1)
+            time.sleep(0.1)
             distancetopoint = utils.get_distance_metres(vehicle.location.global_frame, point)
             if distancetopoint >=1: #離目標距離大於1時會繼續往目標前進，直到小於1時跳出
+                payload = {"goit" : None}
+                client.publish("drone/goit3", json.dumps(payload))
                 print("Distance to target:"+"{:.2f}".format(distancetopoint)) #{}內容會讀取後面.format內的值，如{:.3f}表示將remainingDistance填充到槽中時，取小數點後3位
                 if first_vehicle.mode == "RTL":
                     print("Returning to Launch")
@@ -196,18 +182,15 @@ def bb():
                 print ("Reached target")
                 payload = {"goit" : "drone3goit"}
                 client.publish("drone/goit3", json.dumps(payload))
-                if throw == 'on':
-                    print("on")
             else:
                 print("Change Mode Guided")
                 vehicle.mode = VehicleMode("GUIDED")
         elif mode == 'Inverted triangle':
-            start = time.time()
             payload = {"goit" : None}
             client.publish("drone/goit3", json.dumps(payload))
-            point = target(2, -45,firstalt-5)
+            point = target(2, -45,firstalt-6)
             vehicle.simple_goto(point,3)
-            time.sleep(1)
+            time.sleep(0.1)
             distancetopoint = utils.get_distance_metres(vehicle.location.global_frame, point)
             if distancetopoint >=1: #離目標距離大於1時會繼續往目標前進，直到小於1時跳出
                 #vehicle.simple_goto(point1)
@@ -227,12 +210,11 @@ def bb():
                 print("Change Mode Guided")
                 vehicle.mode = VehicleMode("GUIDED")
         elif mode == 'side_line':
-            start = time.time()
             payload = {"goit" : None}
             client.publish("drone/goit3", json.dumps(payload))
-            point = target(4, -90,firstalt-5)
+            point = target(4, -90,firstalt-6)
             vehicle.simple_goto(point,3)
-            time.sleep(0.5)
+            time.sleep(0.1)
             distancetopoint = utils.get_distance_metres(vehicle.location.global_frame, point)
             if distancetopoint >=1: #離目標距離大於1時會繼續往目標前進，直到小於1時跳出
                 #vehicle.simple_goto(point1)
@@ -256,7 +238,7 @@ def bb():
             vehicle.mode = VehicleMode("RTL")
 
     if vehicle.armed != True:
-        utils.arm_and_takeoff(first_vehicle,vehicle,10) #起飛高度
+        utils.arm_and_takeoff(first_vehicle,vehicle,8) #起飛高度
         print("takeoff")
 
     else:
@@ -277,15 +259,16 @@ def bb():
 
     # 設定連線資訊(IP, Port, 連線時間)
     client.connect(mqtthost, mqttport, 60)
-
+    
     while vehicle.mode.name != "RTL":
         client.loop_start()
     print("close")
     client.loop_stop()
     client.disconnect()
+    
 
 a = threading.Thread(target=aa)  # 建立新的執行緒
-b = threading.Thread(target=bb)  # 建立新的執行
+b = threading.Thread(target=bb)  # 建立新的執行緒
 
 a.start()  # 啟用執行緒
 b.start()  # 啟用執行緒

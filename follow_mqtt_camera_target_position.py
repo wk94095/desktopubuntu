@@ -176,24 +176,24 @@ def bb():
     # 連線設定
     # 初始化地端程式
     client = mqtt.Client()
-    #client = mqtt.Client()
+    client1 = mqtt.Client()
 
     # 設定連線的動作
     client.on_connect = on_connect
-    client.on_connect = on_connect1
+    client1.on_connect = on_connect1
 
     # 設定接收訊息的動作
     client.on_message = on_message
-    client.on_message = on_message1
+    client1.on_message = on_message1
 
     # 設定登入帳號密碼
     client.username_pw_set("bighead1","nfuaesil1")
-    client.username_pw_set("bighead1","nfuaesil1")
+    client1.username_pw_set("bighead1","nfuaesil1")
 
     # 設定連線資訊(IP, Port, 連線時間)
     #try:
     client.connect("192.168.0.117", 1883, 60)
-    client.connect("192.168.0.117", 1883, 60)
+    client1.connect("192.168.0.117", 1883, 60)
     # except:
     #     client.connect("192.168.0.117", 1883, 60)
     end = time.time()
