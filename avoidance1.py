@@ -95,7 +95,7 @@ while True:
     dis = get_distance_metres(follower,leader)
     dle = first_vehicle.location.global_relative_frame.alt - vehicle.location.global_relative_frame.alt
     print(dis)
-    if dis <2:
+    if dis <1:
         send_global_ned_velocity(0,0,-1)
         print("vehicle:"+"{:.2f}".format(vehicle.location.global_relative_frame.alt))
     time.sleep(1)

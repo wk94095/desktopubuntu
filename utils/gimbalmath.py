@@ -1,7 +1,7 @@
 import math
 from dronekit import LocationGlobalRelative
 
-def target(vehicle,gimbalangle):
+def target_location(vehicle,gimbalangle):
     lat = vehicle.location.global_relative_frame.lat #無人機緯度座標
     lon = vehicle.location.global_relative_frame.lon #無人機經度座標
     alt = vehicle.location.global_relative_frame.alt

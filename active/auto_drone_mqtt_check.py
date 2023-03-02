@@ -18,6 +18,7 @@ first_vehicle = connect('127.0.0.1:14560', wait_ready=True, baud=115200) #與飛
 
 mqtthost = "192.168.0.101"
 mqttport = 1883
+modeflag = 0
 
 def get_distance_metres(aLocation1, aLocation2): #定義目標位置與目標位置計算出距離
     
@@ -97,9 +98,10 @@ def aux(ACTUATOR,pwm): #設定aux通道
 
 def dis(point):
     distancetopoint = utils.get_distance_metres(vehicle.location.global_frame, point)
-    print("Distance to first:"+"{:.2f}".format(utils.get_distance_metres(vehicle.location.global_frame, first_vehicle.location.global_frame)))
+    #print("Distance to first:"+"{:.2f}".format(utils.get_distance_metres(vehicle.location.global_frame, first_vehicle.location.global_frame)))
+    #while True:
     if distancetopoint >=1: #離目標距離大於1時會繼續往目標前進，直到小於1時跳出
-        #vehicle.simple_goto(point1)
+        vehicle.simple_goto(point)
         print("Distance to target:"+"{:.2f}".format(distancetopoint)) #{}內容會讀取後面.format內的值，如{:.3f}表示將remainingDistance填充到槽中時，取小數點後3位
         if first_vehicle.mode == "RTL":
             print("Returning to Launch")
@@ -109,12 +111,13 @@ def dis(point):
         vehicle.mode = VehicleMode("RTL")
     elif distancetopoint*0.95<=1:
         print ("Reached target")
-        payload = {"goit" : "drone2goit"}
-        client.publish("drone/goit2", json.dumps(payload))
+        # payload = {"goit" : "drone2goit"}
+        # client.publish("drone/goit2", json.dumps(payload))
         #break
     else:
         print("Change Mode Guided")
         vehicle.mode = VehicleMode("GUIDED")
+            
 
 def aa():
     # 準備要傳送的訊息
@@ -160,7 +163,9 @@ def bb():
         # 將訂閱主題寫在on_connet中
         # 如果我們失去連線或重新連線時 
         # 地端程式將會重新訂閱
-        client.subscribe("drone/mode")
+        client.subscribe("mode/manual-automatic")
+        #client.subscribe("auto-mode/mode")
+        #client.subscribe("drone/mode")
         client.subscribe("drone/throw")
 
     # 當接收到從伺服器發送的訊息時要進行的動作
@@ -171,12 +176,21 @@ def bb():
         mode_Inverted_triangle = target(2, -315,firstalt)
         mode_side_line = target(2, -90,firstalt)
         # 轉換編碼utf-8才看得懂中文
-        #print(msg.topic+" "+ msg.payload.decode('utf-8'))
+        print(msg.topic+" "+ msg.payload.decode('utf-8'))
         data = json.loads(msg.payload.decode('utf-8'))
         mode = data.get("mode")
+        automode = data.get("auto-mode")
+        print(automode)
         # throw = data.get("throw")
-        #print(throw)
+        #print(mode)
         #while True:
+        if msg.topic == "mode/manual-automatic":
+            if data['muilt'] == "auto":
+                client.unsubscribe("drone/mode")
+                client.subscribe("auto-mode/mode")
+            else:
+                client.unsubscribe("auto-mode/mode")
+                client.subscribe("drone/mode")
         if msg.topic == 'drone/throw':
             if data['throw'] == "on":
                 print('on')
@@ -185,18 +199,16 @@ def bb():
                 time.sleep(1)
                 aux(12,1000)
                 print('relayoff')
-                payload = {"goit" : "drone2goit"}
-                client.publish("drone/goit2", json.dumps(payload))
             else:
                 print('off')
-        if mode == 'line':
+        if mode == 'line' or automode == 'line':
             payload = {"goit" : None}
             client.publish("drone/goit2", json.dumps(payload))
             point = mode_line #(距離，與長機相對位置， 高度)
             vehicle.simple_goto(point,3)
             time.sleep(0.1)
             dis(point)
-        elif mode == 'triangle':
+        elif mode == 'triangle' or automode == 'triangle':
             point = mode_triangle
             vehicle.simple_goto(point,3)
             time.sleep(0.1)
@@ -230,24 +242,23 @@ def bb():
     # 連線設定
     # 初始化地端程式
     client = mqtt.Client()
-
     # 設定連線的動作
     client.on_connect = on_connect
-
     # 設定接收訊息的動作
     client.on_message = on_message
-
     # 設定登入帳號密碼
     client.username_pw_set("bighead1","nfuaesil1")
-
     # 設定連線資訊(IP, Port, 連線時間)
-    client.connect(mqtthost, mqttport, 3600)
+    client.connect(mqtthost, mqttport, 60)
+    
     while vehicle.mode.name != "RTL":
+        if first_vehicle.mode == "RTL":
+            print("Returning to Launch")
+            vehicle.mode = VehicleMode("RTL")
         client.loop_start()
     print("close")
     client.loop_stop()
     client.disconnect()
-
     
 a = threading.Thread(target=aa)  # 建立新的執行緒
 b = threading.Thread(target=bb)  # 建立新的執行緒

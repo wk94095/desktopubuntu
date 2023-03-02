@@ -97,26 +97,26 @@ def aux(ACTUATOR,pwm): #設定aux通道
 
 def dis(point):
     distancetopoint = utils.get_distance_metres(vehicle.location.global_frame, point)
-    print("Distance to first:"+"{:.2f}".format(utils.get_distance_metres(vehicle.location.global_frame, first_vehicle.location.global_frame)))
+    #print("Distance to first:"+"{:.2f}".format(utils.get_distance_metres(vehicle.location.global_frame, first_vehicle.location.global_frame)))
     if distancetopoint >=1: #離目標距離大於1時會繼續往目標前進，直到小於1時跳出
         #vehicle.simple_goto(point1)
-        print("Distance to target:"+"{:.2f}".format(distancetopoint)) #{}內容會讀取後面.format內的值，如{:.3f}表示將remainingDistance填充到槽中時，取小數點後3位
+        #print("Distance to target:"+"{:.2f}".format(distancetopoint)) #{}內容會讀取後面.format內的值，如{:.3f}表示將remainingDistance填充到槽中時，取小數點後3位
         if first_vehicle.mode == "RTL":
-            print("Returning to Launch")
+            #print("Returning to Launch")
             vehicle.mode = VehicleMode("RTL")
     elif first_vehicle.mode == "RTL":
-        print("Returning to Launch")
+        #print("Returning to Launch")
         vehicle.mode = VehicleMode("RTL")
     elif distancetopoint*0.95<=1:
-        print ("Reached target")
-        payload = {"goit" : "drone2goit"}
-        client.publish("drone/goit2", json.dumps(payload))
+        #print ("Reached target")
+        payload = {"goit" : "drone3goit"}
+        client.publish("drone/goit3", json.dumps(payload))
         #break
     else:
-        print("Change Mode Guided")
+        #print("Change Mode Guided")
         vehicle.mode = VehicleMode("GUIDED")
 
-def aa():
+def send():
     # 準備要傳送的訊息
     while True:
         msg = { 'lat' : vehicle.location.global_relative_frame.lat ,
@@ -152,8 +152,24 @@ def aa():
             print("88")
             break
     vehicle.mode = VehicleMode("STABILIZE")
+
+def aa():
+    lock.acquire() # 鎖定
+    while True:
+        leader = first_vehicle.location.global_relative_frame
+        follower = vehicle.location.global_relative_frame
+        dis = get_distance_metres(follower,leader)
+        dle = first_vehicle.location.global_relative_frame.alt - vehicle.location.global_relative_frame.alt
+        print("two drone dis:"+"{:f}".format(dis))
+        if dis <1.5:
+            send_global_ned_velocity(0,0,-1)
+            print("vehicle:"+"{:.2f}".format(vehicle.location.global_relative_frame.alt))
+        time.sleep(1)
+        if first_vehicle.mode == "RTL":
+            break
+
 def bb():
-    
+    lock.acquire() # 鎖定
     def on_connect(client, userdata, flags, rc):
         print("Connected with result code "+str(rc))
 
@@ -166,7 +182,7 @@ def bb():
     # 當接收到從伺服器發送的訊息時要進行的動作
     def on_message(client, userdata, msg):
         firstalt = first_vehicle.location.global_relative_frame.alt
-        mode_line = target(2,-180,firstalt-2)
+        mode_line = target(2,-180,firstalt)
         mode_triangle = target(2, -225,firstalt)
         mode_Inverted_triangle = target(2, -315,firstalt)
         mode_side_line = target(2, -90,firstalt)
@@ -185,34 +201,32 @@ def bb():
                 time.sleep(1)
                 aux(12,1000)
                 print('relayoff')
-                payload = {"goit" : "drone2goit"}
-                client.publish("drone/goit2", json.dumps(payload))
             else:
                 print('off')
         if mode == 'line':
             payload = {"goit" : None}
             client.publish("drone/goit2", json.dumps(payload))
             point = mode_line #(距離，與長機相對位置， 高度)
-            vehicle.simple_goto(point,3)
+            vehicle.simple_goto(point,5)
             time.sleep(0.1)
             dis(point)
         elif mode == 'triangle':
             point = mode_triangle
-            vehicle.simple_goto(point,3)
+            vehicle.simple_goto(point,5)
             time.sleep(0.1)
             dis(point)
         elif mode == 'Inverted triangle':
             payload = {"goit" : None}
             client.publish("drone/goit2", json.dumps(payload))
             point = mode_Inverted_triangle
-            vehicle.simple_goto(point,3)
+            vehicle.simple_goto(point,5)
             time.sleep(0.1)
             dis(point)
         elif mode == 'side_line':
             payload = {"goit" : None}
             client.publish("drone/goit2", json.dumps(payload))
             point = mode_side_line
-            vehicle.simple_goto(point,3)
+            vehicle.simple_goto(point,5)
             time.sleep(0.1)
             dis(point)
         elif mode == 'follow1_RTL':
@@ -221,6 +235,7 @@ def bb():
             vehicle.mode = VehicleMode("RTL")
     if vehicle.armed != True:
         utils.arm_and_takeoff(first_vehicle,vehicle,10) #起飛高度
+        lock.release()
         print("takeoff")
         
     else:
@@ -248,12 +263,15 @@ def bb():
     client.loop_stop()
     client.disconnect()
 
-    
+lock = threading.Lock()
+s = threading.Thread(target=send)
 a = threading.Thread(target=aa)  # 建立新的執行緒
 b = threading.Thread(target=bb)  # 建立新的執行緒
 
-a.start()  # 啟用執行緒
+s.start()
 b.start()  # 啟用執行緒
+a.start()  # 啟用執行緒
+
 
 # vehicle.close()
 # first_vehicle.close()

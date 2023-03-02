@@ -13,8 +13,8 @@ import json
 import paho.mqtt.publish as publish
 import threading
 
-vehicle = connect('127.0.0.1:14580', wait_ready=True, baud=115200) #與飛機連線
-first_vehicle = connect('127.0.0.1:14562', wait_ready=True, baud=115200) #與飛機連線
+vehicle = connect('127.0.0.1:14570', wait_ready=True, baud=115200) #與飛機連線
+first_vehicle = connect('127.0.0.1:14560', wait_ready=True, baud=115200) #與飛機連線
 mqtthost = "192.168.0.117"
 mqttport = 1883
 mqtttopic = "drone/follow2"

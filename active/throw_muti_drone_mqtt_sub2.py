@@ -51,8 +51,8 @@ def target(dis, dhead, dalt):
     distance = dis
     #print("離目標物距離:",distance)
     earth_radius=6378137.0 #地球半徑
-    lat1 = distance*math.sin(droneheading)
-    lon1 = distance*math.cos(droneheading)
+    lat1 = distance*math.sin(droneheading) #直角坐標轉換
+    lon1 = distance*math.cos(droneheading) #直角坐標轉換
     #print(lat1,lon1)
     dlat = lat1/earth_radius
     dlon = lon1/(earth_radius*math.cos(math.pi*lat/180))
